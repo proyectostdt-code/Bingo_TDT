@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bingo TDT — 160 tarjetones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F2E28;
+    --bg-2:#153B33;
+    --panel:#173F37;
+    --paper:#F3ECD3;
+    --paper-2:#EAE0BE;
+    --ink:#1D2420;
+    --ink-soft:#4B5750;
+    --gold:#E1A93A;
+    --gold-2:#C98F27;
+    --coral:#D6584B;
+    --line:#2A5348;
+    --good:#4F9C6C;
+    --shadow: 0 12px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #1B4A40 0%, transparent 60%),
+      radial-gradient(1000px 500px at 110% 10%, #123832 0%, transparent 55%),
+      var(--bg);
+    color:var(--paper);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    line-height:1.45;
+  }
+  #print-area{display:none;}
+  h1,h2,h3{margin:0;}
+  .display{
+    font-family:'Anton', sans-serif;
+    letter-spacing:.02em;
+    line-height:.95;
+  }
+  button{
+    font-family:'Inter', sans-serif;
+    cursor:pointer;
+    border:none;
+    border-radius:10px;
+    font-weight:600;
+    transition:transform .08s ease, filter .15s ease;
+  }
+  button:active{transform:translateY(1px);}
+  button:disabled{opacity:.45;cursor:not-allowed;}
+  input[type=text], input[type=password]{
+    font-family:'Inter', sans-serif;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:var(--bg-2);
+    color:var(--paper);
+    padding:.7em .9em;
+    font-size:1rem;
+  }
+  input::placeholder{color:#8FA79E;}
+
+  header.top{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:1.1rem 1.4rem;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap; gap:.6rem;
+  }
+  header.top .brand{display:flex;align-items:baseline;gap:.6rem;}
+  header.top .brand .display{font-size:1.7rem;color:var(--gold);}
+  header.top .brand span.tag{color:#9FBAB0;font-size:.85rem;}
+  header.top nav{display:flex;gap:.5rem;}
+  header.top nav button{
+    background:transparent;color:#BFD6CD;border:1px solid var(--line);
+    padding:.5em 1em;font-size:.85rem;
+  }
+  header.top nav button.active{background:var(--gold);color:#2A1C05;border-color:var(--gold);}
+
+  main{max-width:1180px;margin:0 auto;padding:1.4rem;}
+
+  .hidden{display:none !important;}
+
+  /* --- Landing choice --- */
+  #view-select{
+    display:flex;flex-direction:column;align-items:center;
+    padding:4rem 1rem;gap:1.6rem;text-align:center;
+  }
+  #view-select .display{font-size:clamp(2.4rem,7vw,4.2rem);color:var(--gold);}
+  #view-select p{color:#B9CFC5;max-width:36em;}
+  .choice-row{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;}
+  .choice-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:1.6rem 1.8rem;width:230px;text-align:left;
+  }
+  .choice-card h3{color:var(--paper);font-size:1.15rem;margin-bottom:.4rem;}
+  .choice-card p{color:#9FBAB0;font-size:.88rem;margin-bottom:1rem;}
+  .choice-card button{
+    background:var(--gold);color:#2A1C05;padding:.65em 1em;width:100%;font-size:.95rem;
+  }
+  .choice-card.admin button{background:var(--coral);color:#2A0E0A;}
+
+  /* --- Player view --- */
+  .entry-row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:1.2rem;}
+  .entry-row input{flex:1;min-width:220px;}
+  .entry-row button{background:var(--gold);color:#2A1C05;padding:.7em 1.2em;}
+  .locked-row{
+    display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;
+    margin-bottom:1.2rem;color:#CFE3DB;font-size:.9rem;
+  }
+
+  .live-strip{
+    display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:1rem 1.2rem;margin-bottom:1.4rem;
+  }
+  .player-projector{
+    display:flex;align-items:center;gap:1.4rem;flex-wrap:wrap;
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:1.4rem 1.6rem;margin-bottom:1rem;
+  }
+  .live-strip .meta{color:#B9CFC5;font-size:.85rem;}
+  .live-strip .meta b{color:var(--paper);}
+  .player-projector .meta{color:#B9CFC5;font-size:1rem;}
+  .player-projector .meta b{color:var(--paper);font-size:1.1rem;}
+  .history-chips{display:flex;gap:.35rem;flex-wrap:wrap;max-height:2.4rem;overflow:hidden;margin-bottom:1.2rem;}
+  .chip{
+    background:var(--bg-2);border:1px solid var(--line);border-radius:6px;
+    padding:.15em .5em;font-size:.75rem;color:#CFE3DB;
+  }
+
+  .cards-wrap{display:flex;flex-wrap:wrap;gap:1.4rem;}
+  .card{
+    position:relative;
+    background:var(--paper);color:var(--ink);
+    border-radius:14px;
+    padding:1rem 1rem 1.1rem;
+    width:300px;
+    box-shadow:var(--shadow);
+  }
+  .card .card-head{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:.6rem;
+  }
+  .card .card-head b{font-family:'Anton',sans-serif;font-size:1.05rem;color:var(--gold-2);}
+  .card .card-head span{font-size:.72rem;color:var(--ink-soft);}
+  .letters-row{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:4px;}
+  .letters-row div{
+    text-align:center;font-family:'Anton',sans-serif;font-size:1rem;color:#8A6A17;
+  }
+  .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
+  .cell{
+    aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;
+    background:var(--paper-2);border-radius:6px;font-weight:700;font-size:.95rem;
+    border:1px solid #DED0A0;
+  }
+  .cell.free{background:var(--gold);color:#2A1C05;font-size:.68rem;font-family:'Anton',sans-serif;}
+  .cell.called{background:var(--coral);color:#fff;border-color:var(--coral);}
+  .win-banner{
+    position:absolute;inset:0;border-radius:14px;
+    background:rgba(225,169,58,.94);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Anton',sans-serif;font-size:1.6rem;color:#2A1C05;
+    animation:pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.03);}}
+
+  /* --- Admin view --- */
+  .login-box{
+    max-width:360px;margin:3rem auto;background:var(--panel);
+    border:1px solid var(--line);border-radius:14px;padding:1.6rem;
+  }
+  .login-box h2{margin-bottom:.3rem;font-size:1.2rem;}
+  .login-box p{color:#9FBAB0;font-size:.85rem;margin-bottom:1rem;}
+  .login-box .row{display:flex;gap:.5rem;}
+  .login-box button{background:var(--gold);color:#2A1C05;padding:.7em 1.1em;}
+  .login-error{color:var(--coral);font-size:.82rem;margin-top:.6rem;min-height:1.2em;}
+
+  .admin-grid{display:grid;grid-template-columns:1.1fr 1.4fr;gap:1.4rem;}
+  @media (max-width:900px){.admin-grid{grid-template-columns:1fr;}}
+
+  .panel{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:1.3rem;margin-bottom:1.2rem;
+  }
+  .panel h3{font-size:.95rem;color:#B9CFC5;text-transform:none;margin-bottom:.9rem;font-weight:600;}
+
+  .draw-stage{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.7rem;}
+  .big-ball{
+    width:150px;height:150px;border-radius:50%;
+    background:var(--coral);color:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-family:'Anton',sans-serif;box-shadow:var(--shadow);
+  }
+  .big-ball .l{font-size:1.4rem;opacity:.85;}
+  .big-ball .n{font-size:2.8rem;line-height:1;}
+  .big-ball.empty{background:var(--bg-2);color:#7C9089;}
+  .draw-btn{background:var(--gold);color:#2A1C05;padding:.85em 1.6em;font-size:1.05rem;width:100%;}
+  .count-line{color:#9FBAB0;font-size:.85rem;}
+
+  .field-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-bottom:.8rem;flex-wrap:wrap;}
+  .field-row label{font-size:.85rem;color:#B9CFC5;}
+  select{
+    background:var(--bg-2);color:var(--paper);border:1px solid var(--line);
+    border-radius:8px;padding:.45em .6em;font-family:'Inter',sans-serif;
+  }
+  .toggle-row{display:flex;align-items:center;gap:.5rem;font-size:.85rem;color:#B9CFC5;}
+
+  .ghost-btn{background:transparent;border:1px solid var(--line);color:#CFE3DB;padding:.6em 1em;font-size:.85rem;}
+  .danger-btn{background:var(--coral);color:#2A0E0A;padding:.6em 1em;font-size:.85rem;}
+  .action-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.4rem;}
+
+  .balls-board{display:grid;grid-template-columns:repeat(15,1fr);gap:4px;}
+  .balls-board .b{
+    aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;
+    background:var(--bg-2);border-radius:5px;font-size:.68rem;color:#7C9089;
+    border:1px solid var(--line);
+  }
+  .balls-board .b.on{background:var(--coral);color:#fff;border-color:var(--coral);font-weight:700;}
+  .letters-legend{display:flex;gap:1rem;margin-bottom:.5rem;font-size:.75rem;color:#8FA79E;}
+  .letters-legend b{color:var(--gold);}
+
+  .history-strip-admin{display:flex;gap:.4rem;flex-wrap:wrap;max-height:5.2rem;overflow-y:auto;}
+
+  .verify-result{margin-top:.8rem;}
+  .verify-result .status{
+    display:inline-block;padding:.3em .7em;border-radius:6px;font-size:.82rem;font-weight:700;margin-bottom:.6rem;
+  }
+  .status.win{background:var(--good);color:#0C2416;}
+  .status.pending{background:var(--bg-2);color:#B9CFC5;}
+
+  footer.foot{
+    text-align:center;color:#6D8A80;font-size:.78rem;padding:2rem 1rem 1.4rem;
+  }
+
+  /* --- Print --- */
+  @media print{
+    body > *:not(#print-area){display:none !important;}
+    #print-area{display:block !important;background:#fff;color:#000;}
+    .p-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+    .p-card{border:1.5px solid #333;border-radius:8px;padding:8px;page-break-inside:avoid;}
+    .p-card .p-head{display:flex;justify-content:space-between;font-family:'Anton',sans-serif;font-size:13px;margin-bottom:4px;}
+    .p-letters{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;text-align:center;font-family:'Anton',sans-serif;font-size:11px;}
+    .p-cells{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin-top:2px;}
+    .p-cells div{border:1px solid #999;text-align:center;font-size:11px;padding:3px 0;}
+    .p-cells div.free{background:#eee;font-size:8px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="display">BINGO</span>
+    <span class="tag">TDT · edición fiestas · 160 tarjetones</span>
+  </div>
+  <nav id="mode-nav" class="hidden">
+    <button id="nav-player">Jugador</button>
+    <button id="nav-admin">Administrador</button>
+  </nav>
+</header>
+
+<main>
+
+  <section id="view-select">
+    <span class="display">¡A jugar bingo!</span>
+    <p>Cada persona tiene un tarjetón numerado del 1 al 160. El administrador canta las balotas y aquí puedes seguir el juego en tiempo real desde tu celular.</p>
+    <div class="choice-row">
+      <div class="choice-card">
+        <h3>Soy jugador</h3>
+        <p>Ingresa el número de tu tarjetón y míralo marcarse solo.</p>
+        <button onclick="goTo('player')">Ver mi tarjetón</button>
+      </div>
+      <div class="choice-card admin">
+        <h3>Soy administrador</h3>
+        <p>Canta las balotas y controla el juego.</p>
+        <button onclick="goTo('admin')">Entrar al panel</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLAYER VIEW -->
+  <section id="player-view" class="hidden">
+
+    <div class="player-projector">
+      <div id="player-ball-badge" class="big-ball empty">
+        <div class="l" id="player-ball-letter">—</div>
+        <div class="n" id="player-ball-number">--</div>
+      </div>
+      <div class="meta">
+        <div>Última balota: <b id="player-last-text">ninguna aún</b></div>
+        <div>Cantadas: <b id="player-count-text">0</b>/75 · Patrón para ganar: <b id="player-pattern-text">línea</b></div>
+      </div>
+    </div>
+    <div class="history-chips" id="player-history-chips"></div>
+
+    <div class="entry-row" id="entry-row">
+      <input id="card-number-input" type="text" placeholder="Número(s) de tarjetón, ej: 12 o 12,45,90">
+      <button onclick="showPlayerCards()">Jugar con este tarjetón</button>
+    </div>
+
+    <div class="locked-row hidden" id="locked-row">
+      <span id="locked-row-text">Jugando con tu tarjetón</span>
+    </div>
+
+    <div class="cards-wrap" id="player-cards-wrap"></div>
+  </section>
+
+  <!-- ADMIN VIEW -->
+  <section id="admin-view" class="hidden">
+
+    <div id="admin-login" class="login-box">
+      <h2>Acceso de administrador</h2>
+      <p>Solo quien tenga la clave puede cantar balotas.</p>
+      <div class="row">
+        <input id="admin-pass-input" type="password" placeholder="Clave de administrador">
+        <button onclick="tryAdminLogin()">Entrar</button>
+      </div>
+      <div class="login-error" id="admin-login-error"></div>
+    </div>
+
+    <div id="admin-panel" class="hidden">
+      <div class="admin-grid">
+
+        <!-- Left column: draw controls -->
+        <div>
+          <div class="panel draw-stage">
+            <div id="admin-big-ball" class="big-ball empty">
+              <div class="l">—</div>
+              <div class="n">--</div>
+            </div>
+            <div class="count-line" id="admin-count-text">0 de 75 balotas cantadas</div>
+            <button id="draw-btn" class="draw-btn" onclick="drawBall()">Cantar balota</button>
+            <div class="toggle-row">
+              <input type="checkbox" id="voice-toggle" checked>
+              <label for="voice-toggle">Anunciar en voz alta</label>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Configuración del juego</h3>
+            <div class="field-row">
+              <label for="pattern-select">Patrón para ganar</label>
+              <select id="pattern-select" onchange="updatePattern()">
+                <option value="linea">Línea (horizontal)</option>
+                <option value="columna">Columna (vertical)</option>
+                <option value="diagonal">Diagonal</option>
+                <option value="esquinas">Cuatro esquinas</option>
+                <option value="lleno">Cartón lleno</option>
+              </select>
+            </div>
+            <div class="action-row">
+              <button class="ghost-btn" onclick="printAllCards()">Imprimir los 160 tarjetones</button>
+              <button class="danger-btn" onclick="resetGame()">Reiniciar juego</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Verificar un tarjetón</h3>
+            <div class="entry-row" style="margin-bottom:.5rem;">
+              <input id="verify-input" type="text" placeholder="Número de tarjetón">
+              <button onclick="verifyCard()">Verificar</button>
+            </div>
+            <div class="verify-result" id="verify-result"></div>
+          </div>
+        </div>
+
+        <!-- Right column: board + history -->
+        <div>
+          <div class="panel">
+            <h3>Tablero de balotas</h3>
+            <div class="letters-legend">
+              <span><b>B</b> 1–15</span><span><b>I</b> 16–30</span><span><b>N</b> 31–45</span><span><b>G</b> 46–60</span><span><b>O</b> 61–75</span>
+            </div>
+            <div class="balls-board" id="balls-board"></div>
+          </div>
+
+          <div class="panel">
+            <h3>Historial de balotas cantadas</h3>
+            <div class="history-strip-admin" id="admin-history-strip"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">Bingo TDT — hecho para jugar en equipo. La clave de administrador vive en el código de la página; cámbiala antes del evento si quieres.</footer>
+
+<div id="print-area"></div>
+
+<script>
+/* ============ CONFIG ============ */
+const ADMIN_PASSWORD = "TDT2026";
+const TOTAL_CARDS = 160;
+const LETTERS = ['B','I','N','G','O'];
+const RANGES = {B:[1,15], I:[16,30], N:[31,45], G:[46,60], O:[61,75]};
+const LETTER_NAMES = {B:'Be', I:'I', N:'Ene', G:'Ge', O:'O'};
+const PATTERN_LABELS = {
+  linea:'línea', columna:'columna', diagonal:'diagonal',
+  esquinas:'cuatro esquinas', lleno:'cartón lleno'
+};
+
+let adminUnlocked = false;
+let pollTimer = null;
+let localState = defaultState();
+
+function defaultState(){
+  return { called: [], current: null, pattern: 'linea', updatedAt: 0 };
+}
+
+function letterFor(n){
+  if(n<=15) return 'B';
+  if(n<=30) return 'I';
+  if(n<=45) return 'N';
+  if(n<=60) return 'G';
+  return 'O';
+}
+
+/* ============ deterministic card generation ============ */
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function seedFromCard(cardNum){
+  return Math.imul(cardNum, 2654435761) >>> 0;
+}
+function range(a,b){ const r=[]; for(let i=a;i<=b;i++) r.push(i); return r; }
+function shuffle(arr, rand){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(rand()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function generateCard(cardNum){
+  const rand = mulberry32(seedFromCard(cardNum));
+  const cols = {
+    B: shuffle(range(1,15), rand).slice(0,5),
+    I: shuffle(range(16,30), rand).slice(0,5),
+    N: shuffle(range(31,45), rand).slice(0,4),
+    G: shuffle(range(46,60), rand).slice(0,5),
+    O: shuffle(range(61,75), rand).slice(0,5),
+  };
+  const grid = [];
+  for(let r=0;r<5;r++){
+    const row = [];
+    LETTERS.forEach(letter=>{
+      if(letter==='N' && r===2){
+        row.push('FREE');
+      } else {
+        const idx = letter==='N' ? (r<2 ? r : r-1) : r;
+        row.push(cols[letter][idx]);
+      }
+    });
+    grid.push(row);
+  }
+  return grid;
+}
+
+/* ============ pattern checking ============ */
+function isMarked(val, calledSet){
+  return val === 'FREE' || calledSet.has(val);
+}
+function checkPattern(grid, calledSet, pattern){
+  switch(pattern){
+    case 'linea':
+      return grid.some(row => row.every(v => isMarked(v, calledSet)));
+    case 'columna':
+      for(let c=0;c<5;c++){
+        let all = true;
+        for(let r=0;r<5;r++){ if(!isMarked(grid[r][c], calledSet)){ all=false; break; } }
+        if(all) return true;
+      }
+      return false;
+    case 'diagonal':{
+      let d1 = true, d2 = true;
+      for(let i=0;i<5;i++){
+        if(!isMarked(grid[i][i], calledSet)) d1 = false;
+        if(!isMarked(grid[i][4-i], calledSet)) d2 = false;
+      }
+      return d1 || d2;
+    }
+    case 'esquinas':
+      return isMarked(grid[0][0],calledSet) && isMarked(grid[0][4],calledSet) &&
+             isMarked(grid[4][0],calledSet) && isMarked(grid[4][4],calledSet);
+    case 'lleno':
+      return grid.every(row => row.every(v => isMarked(v, calledSet)));
+    default:
+      return false;
+  }
+}
+
+/* ============ storage ============ */
+async function loadState(){
+  try{
+    const res = await window.storage.get('bingo-game-state', true);
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      return Object.assign(defaultState(), parsed);
+    }
+  }catch(e){ /* key not present yet */ }
+  return defaultState();
+}
+async function saveState(state){
+  state.updatedAt = Date.now();
+  try{
+    await window.storage.set('bingo-game-state', JSON.stringify(state), true);
+  }catch(e){
+    console.error('No se pudo guardar el estado del juego', e);
+  }
+  localState = state;
+}
+
+/* ============ navigation ============ */
+function goTo(view){
+  document.getElementById('view-select').classList.add('hidden');
+  document.getElementById('mode-nav').classList.remove('hidden');
+  showView(view);
+}
+function showView(view){
+  document.getElementById('player-view').classList.toggle('hidden', view!=='player');
+  document.getElementById('admin-view').classList.toggle('hidden', view!=='admin');
+  document.getElementById('nav-player').classList.toggle('active', view==='player');
+  document.getElementById('nav-admin').classList.toggle('active', view==='admin');
+  restartPolling(view);
+}
+document.getElementById('nav-player').addEventListener('click', ()=>showView('player'));
+document.getElementById('nav-admin').addEventListener('click', ()=>showView('admin'));
+
+/* ============ polling ============ */
+function restartPolling(view){
+  if(pollTimer) clearInterval(pollTimer);
+  refreshFromStorage(view);
+  pollTimer = setInterval(()=>refreshFromStorage(view), 1500);
+}
+async function refreshFromStorage(view){
+  const fetched = await loadState();
+  // Guard: a poll can occasionally read a slightly stale copy of shared
+  // storage (just after this same tab wrote a newer one). Never let an
+  // older snapshot roll the game back — only accept it if it's at least
+  // as new as what we already have.
+  const changed = fetched.updatedAt !== localState.updatedAt;
+  if(fetched.updatedAt >= localState.updatedAt){
+    localState = fetched;
+  }
+  if(view==='player'){
+    if(!playerSelectionLoaded){
+      await initPlayerSelection();
+    }
+    renderPlayerLiveStrip();
+    renderPlayerCards();
+  } else if(view==='admin' && adminUnlocked){
+    renderAdminPanel();
+    if(changed) updateVoiceIfNeeded(localState);
+  }
+}
+let lastAnnouncedBall = null;
+function updateVoiceIfNeeded(state){
+  const toggle = document.getElementById('voice-toggle');
+  if(toggle && toggle.checked && state.current && state.current !== lastAnnouncedBall){
+    speakBall(state.current);
+  }
+  lastAnnouncedBall = state.current;
+}
+function speakBall(n){
+  if(!('speechSynthesis' in window)) return;
+  const letter = letterFor(n);
+  const utter = new SpeechSynthesisUtterance(`${LETTER_NAMES[letter]}, ${n}`);
+  utter.lang = 'es-CO';
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utter);
+}
+
+/* ============ player view rendering ============ */
+function renderPlayerLiveStrip(){
+  const badge = document.getElementById('player-ball-badge');
+  const letterEl = document.getElementById('player-ball-letter');
+  const numberEl = document.getElementById('player-ball-number');
+  const lastText = document.getElementById('player-last-text');
+  const countText = document.getElementById('player-count-text');
+  const patternText = document.getElementById('player-pattern-text');
+  const chips = document.getElementById('player-history-chips');
+
+  if(localState.current){
+    badge.classList.remove('empty');
+    letterEl.textContent = letterFor(localState.current);
+    numberEl.textContent = localState.current;
+    lastText.textContent = `${letterFor(localState.current)}-${localState.current}`;
+  } else {
+    badge.classList.add('empty');
+    letterEl.textContent = '—';
+    numberEl.textContent = '--';
+    lastText.textContent = 'ninguna aún';
+  }
+  countText.textContent = localState.called.length;
+  patternText.textContent = PATTERN_LABELS[localState.pattern] || localState.pattern;
+
+  chips.innerHTML = localState.called.slice().reverse().slice(0,20)
+    .map(n => `<span class="chip">${letterFor(n)}${n}</span>`).join('');
+}
+
+let currentPlayerCardNumbers = [];
+let playerSelectionLoaded = false;
+
+/* Remember the player's chosen card(s) on this device for the whole game,
+   using personal (non-shared) storage — so they don't have to re-type it
+   and can't accidentally lose it on refresh. */
+async function initPlayerSelection(){
+  playerSelectionLoaded = true;
+  try{
+    const res = await window.storage.get('player-cards', false);
+    if(res && res.value){
+      const nums = JSON.parse(res.value);
+      if(Array.isArray(nums) && nums.length){
+        currentPlayerCardNumbers = nums;
+        lockPlayerUI(true);
+        return;
+      }
+    }
+  }catch(e){ /* nothing saved yet */ }
+  lockPlayerUI(false);
+}
+function lockPlayerUI(locked){
+  document.getElementById('entry-row').classList.toggle('hidden', locked);
+  document.getElementById('locked-row').classList.toggle('hidden', !locked);
+  if(locked){
+    const label = currentPlayerCardNumbers.length > 1
+      ? `Jugando con los tarjetones #${currentPlayerCardNumbers.join(', #')}`
+      : `Jugando con el tarjetón #${currentPlayerCardNumbers[0]}`;
+    document.getElementById('locked-row-text').textContent = label;
+  }
+}
+async function showPlayerCards(){
+  const raw = document.getElementById('card-number-input').value;
+  const nums = raw.split(/[,\s]+/).map(s=>parseInt(s,10)).filter(n=>!isNaN(n) && n>=1 && n<=TOTAL_CARDS);
+  currentPlayerCardNumbers = [...new Set(nums)];
+  if(currentPlayerCardNumbers.length === 0){
+    renderPlayerCards();
+    return;
+  }
+  try{
+    await window.storage.set('player-cards', JSON.stringify(currentPlayerCardNumbers), false);
+  }catch(e){
+    console.error('No se pudo recordar el tarjetón en este dispositivo', e);
+  }
+  lockPlayerUI(true);
+  renderPlayerCards();
+}
+/* By design, once a player picks a card there is no way to change it from
+   the UI — that keeps the game fair. If someone genuinely typed the wrong
+   number, an admin can clear it for them from the browser console with:
+   window.storage.delete('player-cards', false) — there's no button for it. */
+
+function renderPlayerCards(){
+  const wrap = document.getElementById('player-cards-wrap');
+  if(currentPlayerCardNumbers.length === 0){
+    wrap.innerHTML = '';
+    return;
+  }
+  const calledSet = new Set(localState.called);
+  wrap.innerHTML = currentPlayerCardNumbers.map(num => {
+    const grid = generateCard(num);
+    const won = checkPattern(grid, calledSet, localState.pattern);
+    return renderCardHTML(num, grid, calledSet, won);
+  }).join('');
+}
+function renderCardHTML(num, grid, calledSet, won){
+  const lettersRow = LETTERS.map(l=>`<div>${l}</div>`).join('');
+  const cells = grid.map(row => row.map(v=>{
+    if(v==='FREE') return `<div class="cell free">LIBRE</div>`;
+    const cls = calledSet.has(v) ? 'cell called' : 'cell';
+    return `<div class="${cls}">${v}</div>`;
+  }).join('')).join('');
+  return `
+    <div class="card">
+      ${won ? `<div class="win-banner">¡BINGO!</div>` : ''}
+      <div class="card-head"><b>Tarjetón #${num}</b><span>Bingo TDT</span></div>
+      <div class="letters-row">${lettersRow}</div>
+      <div class="grid5">${cells}</div>
+    </div>`;
+}
+
+/* ============ admin: login ============ */
+function tryAdminLogin(){
+  const val = document.getElementById('admin-pass-input').value;
+  const err = document.getElementById('admin-login-error');
+  if(val === ADMIN_PASSWORD){
+    adminUnlocked = true;
+    document.getElementById('admin-login').classList.add('hidden');
+    document.getElementById('admin-panel').classList.remove('hidden');
+    err.textContent = '';
+    document.getElementById('pattern-select').value = localState.pattern;
+    refreshFromStorage('admin');
+  } else {
+    err.textContent = 'Clave incorrecta. Intenta de nuevo.';
+  }
+}
+
+/* ============ admin: draw / reset / pattern ============ */
+let drawInProgress = false;
+async function drawBall(){
+  if(!adminUnlocked || drawInProgress) return;
+  if(localState.called.length >= 75) return;
+  drawInProgress = true;
+  const drawBtn = document.getElementById('draw-btn');
+  if(drawBtn) drawBtn.disabled = true;
+  try{
+    // Build the next state from the in-memory copy we already know is
+    // current (updated by our own last save / the latest accepted poll),
+    // never from a fresh storage read — a fresh read can occasionally lag
+    // behind our own just-written value and would silently drop the ball
+    // we just registered when cantando rápido, back to back.
+    const state = { called: localState.called.slice(), current: localState.current, pattern: localState.pattern, updatedAt: localState.updatedAt };
+    let next;
+    const calledSet = new Set(state.called);
+    do{ next = 1 + Math.floor(Math.random()*75); } while(calledSet.has(next));
+    state.called.push(next);
+    state.current = next;
+    await saveState(state);
+    lastAnnouncedBall = null; // force announce even in same tab
+    updateVoiceIfNeeded(state);
+  } finally {
+    drawInProgress = false;
+    renderAdminPanel();
+  }
+}
+async function updatePattern(){
+  if(!adminUnlocked) return;
+  // Same principle as drawBall: patch the in-memory state instead of
+  // re-fetching, so a pattern change never overwrites a ball drawn a
+  // split second earlier that hasn't round-tripped through storage yet.
+  const state = { called: localState.called.slice(), current: localState.current, pattern: document.getElementById('pattern-select').value, updatedAt: localState.updatedAt };
+  await saveState(state);
+  renderAdminPanel();
+}
+async function resetGame(){
+  if(!adminUnlocked) return;
+  if(!confirm('¿Seguro que quieres reiniciar el juego? Se borrará el historial de balotas.')) return;
+  const state = defaultState();
+  state.pattern = document.getElementById('pattern-select').value || 'linea';
+  await saveState(state);
+  lastAnnouncedBall = null;
+  renderAdminPanel();
+  document.getElementById('verify-result').innerHTML = '';
+}
+
+/* ============ admin: rendering ============ */
+function renderAdminPanel(){
+  const bigBall = document.getElementById('admin-big-ball');
+  const countText = document.getElementById('admin-count-text');
+  const drawBtn = document.getElementById('draw-btn');
+  const board = document.getElementById('balls-board');
+  const historyStrip = document.getElementById('admin-history-strip');
+  const patternSelect = document.getElementById('pattern-select');
+
+  if(document.activeElement !== patternSelect){
+    patternSelect.value = localState.pattern;
+  }
+
+  if(localState.current){
+    bigBall.classList.remove('empty');
+    bigBall.innerHTML = `<div class="l">${letterFor(localState.current)}</div><div class="n">${localState.current}</div>`;
+  } else {
+    bigBall.classList.add('empty');
+    bigBall.innerHTML = `<div class="l">—</div><div class="n">--</div>`;
+  }
+  countText.textContent = `${localState.called.length} de 75 balotas cantadas`;
+  drawBtn.disabled = localState.called.length >= 75;
+  drawBtn.textContent = localState.called.length >= 75 ? 'Balotas agotadas' : 'Cantar balota';
+
+  if(!board.dataset.built){
+    board.innerHTML = range(1,75).map(n=>`<div class="b" id="ball-${n}">${n}</div>`).join('');
+    board.dataset.built = '1';
+  }
+  const calledSet = new Set(localState.called);
+  for(let n=1;n<=75;n++){
+    const el = document.getElementById(`ball-${n}`);
+    if(el) el.classList.toggle('on', calledSet.has(n));
+  }
+
+  historyStrip.innerHTML = localState.called.slice().reverse()
+    .map(n=>`<span class="chip">${letterFor(n)}${n}</span>`).join('') || '<span class="chip">Sin balotas cantadas todavía</span>';
+}
+
+/* ============ admin: verify card ============ */
+function verifyCard(){
+  const val = parseInt(document.getElementById('verify-input').value, 10);
+  const box = document.getElementById('verify-result');
+  if(isNaN(val) || val<1 || val>TOTAL_CARDS){
+    box.innerHTML = `<div class="status pending">Ingresa un número entre 1 y ${TOTAL_CARDS}</div>`;
+    return;
+  }
+  const calledSet = new Set(localState.called);
+  const grid = generateCard(val);
+  const won = checkPattern(grid, calledSet, localState.pattern);
+  box.innerHTML = `
+    <div class="status ${won?'win':'pending'}">${won ? '¡Ganador! ✔' : 'Aún no completa el patrón'}</div>
+    ${renderCardHTML(val, grid, calledSet, false)}
+  `;
+}
+
+/* ============ print all cards ============ */
+function printAllCards(){
+  const area = document.getElementById('print-area');
+  let html = `<div class="p-grid">`;
+  for(let i=1;i<=TOTAL_CARDS;i++){
+    const grid = generateCard(i);
+    const lettersRow = LETTERS.map(l=>`<div>${l}</div>`).join('');
+    const cells = grid.map(row=>row.map(v=>{
+      if(v==='FREE') return `<div class="free">LIBRE</div>`;
+      return `<div>${v}</div>`;
+    }).join('')).join('');
+    html += `
+      <div class="p-card">
+        <div class="p-head"><span>Tarjetón #${i}</span><span>Bingo TDT</span></div>
+        <div class="p-letters">${lettersRow}</div>
+        <div class="p-cells">${cells}</div>
+      </div>`;
+  }
+  html += `</div>`;
+  area.innerHTML = html;
+  setTimeout(()=>window.print(), 100);
+}
+
+/* ============ init ============ */
+(async function init(){
+  localState = await loadState();
+})();
+</script>
+
+</body>
+</html>
