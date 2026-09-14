@@ -11,10 +11,15 @@
 <script src="https://www.gstatic.com/firebasejs/12.11.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore-compat.js"></script>
 <style>
+@font-face{
+  font-family:'TDT';
+  src:url('font/AkaPosse.ttf') format('truetype');
+  font-display:swap;
+}
   :root{
-    --bg:#0F2E28;
-    --bg-2:#153B33;
-    --panel:#173F37;
+    --bg:#000000;
+    --bg-2:#3b2115;
+    --panel:#3f2717;
     --paper:#F3ECD3;
     --paper-2:#EAE0BE;
     --ink:#1D2420;
@@ -22,7 +27,7 @@
     --gold:#E1A93A;
     --gold-2:#C98F27;
     --coral:#D6584B;
-    --line:#2A5348;
+    --line:#ff7300;
     --good:#4F9C6C;
     --shadow: 0 12px 30px rgba(0,0,0,.35);
   }
@@ -41,7 +46,7 @@
   #print-area{display:none;}
   h1,h2,h3{margin:0;}
   .display{
-    font-family:'Anton', sans-serif;
+    font-family:'TDT', sans-serif;
     letter-spacing:.02em;
     line-height:.95;
   }
@@ -95,10 +100,32 @@
 
   /* --- Landing choice --- */
   #view-select{
-    display:flex;flex-direction:column;align-items:center;
-    padding:4rem 1rem;gap:1.6rem;text-align:center;
+    position:relative;overflow:hidden;
+    padding:4rem 1rem;text-align:center;
+    min-height:100vh;
   }
   #view-select .display{font-size:clamp(2.4rem,7vw,4.2rem);color:var(--gold);}
+  .view-select-content{
+    position:relative;z-index:1;
+    display:flex;flex-direction:column;align-items:center;gap:1.6rem;
+  }
+
+  /* Lluvia de fotos PNG de fondo, solo en la pantalla de bienvenida */
+  .photo-rain{
+    position:absolute;inset:0;overflow:hidden;pointer-events:none;
+    contain:layout paint style;z-index:0;
+  }
+  .photo-rain img{
+    position:absolute;top:-120px;left:0;
+    opacity:.85;border-radius:8px;
+    box-shadow:0 8px 16px rgba(0,0,0,.35);
+    animation-name:photoFall;animation-timing-function:linear;animation-iteration-count:infinite;
+    will-change:transform;
+  }
+  @keyframes photoFall{
+    from{ transform: translateY(-10vh) rotate(0deg); }
+    to{ transform: translateY(115vh) rotate(var(--rot,25deg)); }
+  }
   #view-select p{color:#B9CFC5;max-width:36em;}
   .choice-row{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;}
   .choice-card{
@@ -317,8 +344,8 @@
 
 <header class="top">
   <div class="brand">
-    <span class="display">BINGO</span>
-    <span class="tag">TDT · edición fiestas · 160 tarjetones</span>
+    <span class="display">BINGO TDT</span>
+    <span class="tag"> · edición fiestas · 160 tarjetones · </span>
   </div>
   <nav id="mode-nav" class="hidden">
     <button id="nav-player">Jugador</button>
@@ -329,18 +356,21 @@
 <main>
 
   <section id="view-select">
-    <span class="display">¡A jugar bingo!</span>
-    <p>Cada persona tiene un tarjetón numerado del 1 al 160. El administrador canta las balotas y aquí puedes seguir el juego en tiempo real desde tu celular.</p>
-    <div class="choice-row">
-      <div class="choice-card">
-        <h3>Soy jugador</h3>
-        <p>Ingresa el número de tu tarjetón y marca tú mismo lo que vayas escuchando.</p>
-        <button onclick="goTo('player')">Ver mi tarjetón</button>
-      </div>
-      <div class="choice-card admin">
-        <h3>Soy administrador</h3>
-        <p>Canta las balotas y controla el juego.</p>
-        <button onclick="goTo('admin')">Entrar al panel</button>
+    <div class="photo-rain" id="photo-rain" aria-hidden="true"></div>
+    <div class="view-select-content">
+      <span class="display">¡A JUGAR BINGO!</span>
+      <p>Cada persona tiene un tarjetón numerado del 1 al 160. El administrador canta las balotas y aquí puedes seguir el juego en tiempo real desde tu celular.</p>
+      <div class="choice-row">
+        <div class="choice-card">
+          <h3>Soy jugador</h3>
+          <p>Ingresa el número de tu tarjetón y marca tú mismo lo que vayas escuchando.</p>
+          <button onclick="goTo('player')">Ver mi tarjetón</button>
+        </div>
+        <div class="choice-card admin">
+          <h3>Soy administrador</h3>
+          <p>Canta las balotas y controla el juego.</p>
+          <button onclick="goTo('admin')">Entrar al panel</button>
+        </div>
       </div>
     </div>
   </section>
@@ -476,7 +506,7 @@
 
 </main>
 
-<footer class="foot">Bingo TDT — hecho para jugar en equipo. La clave de administrador vive en el código de la página; cámbiala antes del evento si quieres.</footer>
+<footer class="foot">Bingo TDT — hecho para jugar en equipo.</footer>
 
 <div id="print-area"></div>
 
@@ -1043,6 +1073,34 @@ function printAllCards(){
   area.innerHTML = html;
   setTimeout(()=>window.print(), 100);
 }
+
+/* ============ lluvia de fotos en la pantalla de bienvenida ============ */
+// Reemplaza estos nombres por los de tus PNG (súbelos a tu repositorio,
+// en la misma carpeta que este archivo, o ajusta la ruta, ej: "img/foto1.png").
+const RAIN_IMAGES = ["img/TDT.png", "img/TDT.png", "img/pelota2.png", "img/pelota2.png"];
+function startPhotoRain(){
+  const container = document.getElementById('photo-rain');
+  if(!container || RAIN_IMAGES.length === 0) return;
+  const COUNT = 16; // cantidad de fotos cayendo a la vez
+  for(let i=0;i<COUNT;i++){
+    const img = document.createElement('img');
+    img.src = RAIN_IMAGES[i % RAIN_IMAGES.length];
+    img.alt = '';
+    img.onerror = function(){ this.remove(); }; // si falta un archivo, no deja un ícono roto
+    const size = 40 + Math.random()*55;      // 40–95px
+    const left = Math.random()*96;           // 0–96% del ancho
+    const duration = 9 + Math.random()*9;    // 9–18s por caída
+    const delay = -(Math.random()*duration); // negativo: arrancan ya a mitad de caída, no todas juntas
+    const rot = Math.round(Math.random()*70 - 35); // -35° a 35°
+    img.style.width = size + 'px';
+    img.style.left = left + '%';
+    img.style.animationDuration = duration + 's';
+    img.style.animationDelay = delay + 's';
+    img.style.setProperty('--rot', rot + 'deg');
+    container.appendChild(img);
+  }
+}
+startPhotoRain();
 </script>
 
 </body>
