@@ -402,8 +402,9 @@
 
     <div class="entry-row" id="entry-row">
       <input id="card-number-input" type="text" placeholder="Número(s) de tarjetón, ej: 12 o 12,45,90">
-      <button onclick="showPlayerCards()">Jugar con este tarjetón</button>
+      <button id="claim-btn" onclick="showPlayerCards()">Jugar con este tarjetón</button>
     </div>
+    <div class="login-error" id="claim-error"></div>
 
     <div class="locked-row hidden" id="locked-row">
       <span id="locked-row-text">Jugando con tu tarjetón</span>
@@ -517,12 +518,6 @@
 const ADMIN_PASSWORD = "TDT2026";
 const TOTAL_CARDS = 160;
 
-// Pega aquí la configuración de TU proyecto de Firebase (gratis).
-// Sin esto, el juego funciona solo en la pantalla del administrador
-// y NO se sincroniza con los jugadores en otros celulares.
-// Guía rápida: console.firebase.google.com -> crear proyecto ->
-// Firestore Database (modo de prueba) -> ⚙️ Configuración del proyecto
-// -> "Tus apps" -> app web -> copia el objeto firebaseConfig aquí.
 const firebaseConfig = {
   apiKey: "AIzaSyDto7tX2nwHM_LC5bApdA6tXexZ0bFjJPs",
   authDomain: "bingo-tdt.firebaseapp.com",
@@ -548,6 +543,53 @@ let gameDocRef = null;
 let unsubscribeSnapshot = null;
 let firebaseReady = false;
 
+/* Identificador propio de este dispositivo/navegador (no cambia entre
+   recargas), para poder distinguir "este tarjetón ya es mío" de
+   "este tarjetón lo tiene otra persona". */
+function getClientId(){
+  let id = localStorage.getItem('bingo-client-id');
+  if(!id){
+    id = 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    try{ localStorage.setItem('bingo-client-id', id); }catch(e){}
+  }
+  return id;
+}
+
+/* Reserva cada número de tarjetón en Firestore (una colección con un
+   documento por número) usando una transacción, así dos celulares no
+   pueden quedarse con el mismo tarjetón aunque lo intenten a la vez.
+   Si Firebase no está configurado, no hay forma de coordinar entre
+   dispositivos, así que se deja pasar (comportamiento anterior). */
+async function claimCardNumbers(nums){
+  if(!firebaseReady) return { ok:true, conflicts:[] };
+  const clientId = getClientId();
+  const conflicts = [];
+  for(const num of nums){
+    const ref = db.collection('bingo-claims').doc(String(num));
+    try{
+      await db.runTransaction(async (tx) => {
+        const doc = await tx.get(ref);
+        if(doc.exists && doc.data().clientId !== clientId){
+          throw new Error('taken');
+        }
+        tx.set(ref, { clientId, claimedAt: Date.now() });
+      });
+    }catch(e){
+      conflicts.push(num);
+    }
+  }
+  return { ok: conflicts.length === 0, conflicts };
+}
+async function clearAllClaims(){
+  if(!firebaseReady) return;
+  try{
+    const snap = await db.collection('bingo-claims').get();
+    const batch = db.batch();
+    snap.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+  }catch(e){ console.error('No se pudieron liberar los tarjetones reservados', e); }
+}
+
 function defaultState(){
   return { called: [], current: null, pattern: 'linea', updatedAt: 0 };
 }
@@ -559,7 +601,6 @@ function letterFor(n){
   return 'O';
 }
 
-/* ============ balotera: animación al revelar una balota ============ */
 let lastShownBallAdmin = null;
 let lastShownBallPlayer = null;
 function animateBallReveal(prefix, ball){
@@ -597,7 +638,6 @@ function showEmptyBall(prefix){
   if(numberEl) numberEl.textContent = '--';
 }
 
-/* ============ Firebase bootstrap ============ */
 (function initFirebase(){
   const looksConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf('TU_') !== 0;
   if(!looksConfigured){
@@ -616,7 +656,6 @@ function showEmptyBall(prefix){
   }
 })();
 
-/* ============ deterministic card generation ============ */
 function mulberry32(seed){
   return function(){
     seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
@@ -662,7 +701,6 @@ function generateCard(cardNum){
   return grid;
 }
 
-/* ============ pattern checking ============ */
 function isMarked(val, markedSet){
   return val === 'FREE' || markedSet.has(val);
 }
@@ -695,7 +733,6 @@ function checkPattern(grid, markedSet, pattern){
   }
 }
 
-/* ============ shared game state (Firebase Firestore) ============ */
 async function loadState(){
   if(!firebaseReady) return defaultState();
   try{
@@ -719,7 +756,6 @@ async function saveState(state){
   localState = state;
 }
 
-/* ============ navigation ============ */
 function goTo(view){
   document.getElementById('view-select').classList.add('hidden');
   document.getElementById('mode-nav').classList.remove('hidden');
@@ -738,7 +774,6 @@ function showView(view){
 document.getElementById('nav-player').addEventListener('click', ()=>showView('player'));
 document.getElementById('nav-admin').addEventListener('click', ()=>showView('admin'));
 
-/* ============ realtime sync ============ */
 function attachRealtimeListener(view){
   if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
   const syncStatus = document.getElementById('sync-status');
@@ -790,7 +825,6 @@ function speakBall(n){
   speechSynthesis.speak(utter);
 }
 
-/* ============ player view rendering ============ */
 function renderPlayerLiveStrip(){
   const lastText = document.getElementById('player-last-text');
   const countText = document.getElementById('player-count-text');
@@ -817,11 +851,8 @@ function renderPlayerLiveStrip(){
 
 let currentPlayerCardNumbers = [];
 let playerSelectionLoaded = false;
-let playerMarks = {}; // { "12": [7, 34, 61] }  -> números que el jugador ya marcó en el tarjetón #12
+let playerMarks = {};
 
-/* El tarjetón elegido y los números marcados se guardan en este
-   dispositivo (localStorage) para que sobrevivan a un refresco de
-   página y no se puedan cambiar a mitad de partida. */
 function initPlayerSelection(){
   playerSelectionLoaded = true;
   loadPlayerMarks();
@@ -835,7 +866,7 @@ function initPlayerSelection(){
         return;
       }
     }
-  }catch(e){ /* nada guardado aún */ }
+  }catch(e){ }
   lockPlayerUI(false);
 }
 function loadPlayerMarks(){
@@ -858,33 +889,41 @@ function lockPlayerUI(locked){
     document.getElementById('locked-row-text').textContent = label;
   }
 }
-/* Por diseño, una vez elegido el tarjetón no hay botón para cambiarlo
-   — así el juego es justo para todos. Si alguien se equivocó de número
-   de verdad, se soluciona borrando "bingo-player-cards" del
-   almacenamiento local de ese navegador (F12 -> Application -> Local
-   Storage), no hay atajo en la interfaz a propósito. */
-function showPlayerCards(){
+async function showPlayerCards(){
   const raw = document.getElementById('card-number-input').value;
   const nums = raw.split(/[,\s]+/).map(s=>parseInt(s,10)).filter(n=>!isNaN(n) && n>=1 && n<=TOTAL_CARDS);
-  currentPlayerCardNumbers = [...new Set(nums)];
-  if(currentPlayerCardNumbers.length === 0){
+  const uniqueNums = [...new Set(nums)];
+  const errEl = document.getElementById('claim-error');
+  const btn = document.getElementById('claim-btn');
+  errEl.textContent = '';
+  if(uniqueNums.length === 0){
     renderPlayerCards();
     return;
   }
+  if(btn) btn.disabled = true;
   try{
-    localStorage.setItem('bingo-player-cards', JSON.stringify(currentPlayerCardNumbers));
-  }catch(e){
-    console.error('No se pudo recordar el tarjetón en este dispositivo', e);
+    // Reserva los números en la base compartida antes de dar por elegido
+    // el tarjetón — así se evita que dos personas terminen con el mismo.
+    const result = await claimCardNumbers(uniqueNums);
+    if(!result.ok){
+      errEl.textContent = `El tarjetón #${result.conflicts.join(', #')} ya lo tiene otra persona — elige otro número.`;
+      return;
+    }
+    currentPlayerCardNumbers = uniqueNums;
+    try{
+      localStorage.setItem('bingo-player-cards', JSON.stringify(currentPlayerCardNumbers));
+    }catch(e){
+      console.error('No se pudo recordar el tarjetón en este dispositivo', e);
+    }
+    lockPlayerUI(true);
+    renderPlayerCards();
+  } finally {
+    if(btn) btn.disabled = false;
   }
-  lockPlayerUI(true);
-  renderPlayerCards();
 }
 
-/* Tocar un número del tarjetón lo marca (o desmarca) manualmente —
-   solo si esa balota ya fue cantada. Así el jugador marca su cartón
-   como lo haría en físico, en vez de que se marque solo. */
 function toggleMark(cardNum, value){
-  if(!localState.called.includes(value)) return; // esa balota no ha salido
+  if(!localState.called.includes(value)) return;
   const key = String(cardNum);
   if(!playerMarks[key]) playerMarks[key] = [];
   const idx = playerMarks[key].indexOf(value);
@@ -909,9 +948,6 @@ function renderPlayerCards(){
   }).join('');
 }
 
-/* calledSet: balotas oficialmente cantadas. markedSet: lo que este
-   tarjetón tiene marcado (por el jugador, o = calledSet para las
-   vistas de administrador). interactive: si se puede tocar para marcar. */
 function renderCardHTML(num, grid, calledSet, markedSet, won, interactive){
   const lettersRow = LETTERS.map(l=>`<div>${l}</div>`).join('');
   const cells = grid.map(row => row.map(v=>{
@@ -933,7 +969,6 @@ function renderCardHTML(num, grid, calledSet, markedSet, won, interactive){
     </div>`;
 }
 
-/* ============ admin: login ============ */
 function tryAdminLogin(){
   const val = document.getElementById('admin-pass-input').value;
   const err = document.getElementById('admin-login-error');
@@ -949,7 +984,6 @@ function tryAdminLogin(){
   }
 }
 
-/* ============ admin: draw / reset / pattern ============ */
 let drawInProgress = false;
 async function drawBall(){
   if(!adminUnlocked || drawInProgress) return;
@@ -958,19 +992,16 @@ async function drawBall(){
   const drawBtn = document.getElementById('draw-btn');
   if(drawBtn) drawBtn.disabled = true;
   try{
-    // Se parte del estado que ya tenemos en memoria (actualizado por
-    // nuestro último guardado o por la última actualización aceptada
-    // del listener en vivo), nunca de una lectura nueva — así nunca se
-    // pisa una balota recién cantada si se hace clic rápido.
     const state = { called: localState.called.slice(), current: localState.current, pattern: localState.pattern, updatedAt: localState.updatedAt };
     let next;
     const calledSet = new Set(state.called);
     do{ next = 1 + Math.floor(Math.random()*75); } while(calledSet.has(next));
     state.called.push(next);
     state.current = next;
+    // No anunciamos aquí a propósito: el listener en tiempo real (más abajo)
+    // ya recibe este mismo cambio casi al instante y se encarga de la voz.
+    // Anunciar también aquí causaba que la balota se dijera dos veces.
     await saveState(state);
-    lastAnnouncedBall = null; // forzar el anuncio aunque sea la misma pestaña
-    updateVoiceIfNeeded(state);
   } finally {
     drawInProgress = false;
     renderAdminPanel();
@@ -984,16 +1015,16 @@ async function updatePattern(){
 }
 async function resetGame(){
   if(!adminUnlocked) return;
-  if(!confirm('¿Seguro que quieres reiniciar el juego? Se borrará el historial de balotas.')) return;
+  if(!confirm('¿Seguro que quieres reiniciar el juego? Se borrará el historial de balotas y quedarán libres todos los tarjetones.')) return;
   const state = defaultState();
   state.pattern = document.getElementById('pattern-select').value || 'linea';
   await saveState(state);
+  await clearAllClaims();
   lastAnnouncedBall = null;
   renderAdminPanel();
   document.getElementById('verify-result').innerHTML = '';
 }
 
-/* ============ admin: rendering ============ */
 function renderAdminPanel(){
   const countText = document.getElementById('admin-count-text');
   const drawBtn = document.getElementById('draw-btn');
@@ -1032,7 +1063,6 @@ function renderAdminPanel(){
     .map((n,i)=>`<span class="chip${i===0?' latest':''}">${letterFor(n)}${n}</span>`).join('') || '<span class="chip">Sin balotas cantadas todavía</span>';
 }
 
-/* ============ admin: verify card ============ */
 function verifyCard(){
   const val = parseInt(document.getElementById('verify-input').value, 10);
   const box = document.getElementById('verify-result');
@@ -1042,8 +1072,6 @@ function verifyCard(){
   }
   const calledSet = new Set(localState.called);
   const grid = generateCard(val);
-  // La verificación oficial del admin se hace contra las balotas
-  // realmente cantadas (no contra lo que ese jugador haya marcado).
   const won = checkPattern(grid, calledSet, localState.pattern);
   box.innerHTML = `
     <div class="status ${won?'win':'pending'}">${won ? '¡Ganador! ✔' : 'Aún no completa el patrón'}</div>
@@ -1051,7 +1079,6 @@ function verifyCard(){
   `;
 }
 
-/* ============ print all cards ============ */
 function printAllCards(){
   const area = document.getElementById('print-area');
   let html = `<div class="p-grid">`;
@@ -1074,24 +1101,21 @@ function printAllCards(){
   setTimeout(()=>window.print(), 100);
 }
 
-/* ============ lluvia de fotos en la pantalla de bienvenida ============ */
-// Reemplaza estos nombres por los de tus PNG (súbelos a tu repositorio,
-// en la misma carpeta que este archivo, o ajusta la ruta, ej: "img/foto1.png").
-const RAIN_IMAGES = ["img/TDT.png", "img/TDT.png", "img/pelota2.png", "img/pelota2.png"];
+const RAIN_IMAGES = ["img/TDT.png", "img/pelota5.png", "img/pelota3.png", "img/pelota4.png"];
 function startPhotoRain(){
   const container = document.getElementById('photo-rain');
   if(!container || RAIN_IMAGES.length === 0) return;
-  const COUNT = 16; // cantidad de fotos cayendo a la vez
+  const COUNT = 16;
   for(let i=0;i<COUNT;i++){
     const img = document.createElement('img');
     img.src = RAIN_IMAGES[i % RAIN_IMAGES.length];
     img.alt = '';
-    img.onerror = function(){ this.remove(); }; // si falta un archivo, no deja un ícono roto
-    const size = 40 + Math.random()*55;      // 40–95px
-    const left = Math.random()*96;           // 0–96% del ancho
-    const duration = 9 + Math.random()*9;    // 9–18s por caída
-    const delay = -(Math.random()*duration); // negativo: arrancan ya a mitad de caída, no todas juntas
-    const rot = Math.round(Math.random()*70 - 35); // -35° a 35°
+    img.onerror = function(){ this.remove(); };
+    const size = 40 + Math.random()*55;
+    const left = Math.random()*96;
+    const duration = 9 + Math.random()*9;
+    const delay = -(Math.random()*duration);
+    const rot = Math.round(Math.random()*70 - 35);
     img.style.width = size + 'px';
     img.style.left = left + '%';
     img.style.animationDuration = duration + 's';
