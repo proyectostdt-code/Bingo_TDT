@@ -408,6 +408,10 @@
       <div class="meta">
         <div>Última balota: <b id="player-last-text">ninguna aún</b></div>
         <div>Cantadas: <b id="player-count-text">0</b>/75 · Patrón para ganar: <b id="player-pattern-text">línea</b></div>
+        <div class="toggle-row">
+          <input type="checkbox" id="player-voice-toggle" checked>
+          <label for="player-voice-toggle">Anunciar en voz alta</label>
+        </div>
       </div>
     </div>
     <div class="history-chips" id="player-history-chips"></div>
@@ -932,6 +936,8 @@ function attachRealtimeListener(view){
     if(isReset){
       playerMarks = {};
       notifiedWins = {};
+      lastAnnouncedBall = null;
+      clearSpeechQueue();
       try{ localStorage.removeItem('bingo-player-marks'); }catch(e){}
     }
     if(syncStatus){ syncStatus.textContent = 'Sincronizado en vivo'; syncStatus.className='sync-line ok'; }
@@ -939,9 +945,10 @@ function attachRealtimeListener(view){
     if(view==='player'){
       renderPlayerLiveStrip();
       renderPlayerCards();
+      if(changed) updateVoiceIfNeeded(localState, 'player-voice-toggle');
     } else if(view==='admin' && adminUnlocked){
       renderAdminPanel();
-      if(changed) updateVoiceIfNeeded(localState);
+      if(changed) updateVoiceIfNeeded(localState, 'voice-toggle');
     }
   }
 
@@ -969,20 +976,37 @@ function attachRealtimeListener(view){
 }
 
 let lastAnnouncedBall = null;
-function updateVoiceIfNeeded(state){
-  const toggle = document.getElementById('voice-toggle');
+function updateVoiceIfNeeded(state, toggleId){
+  const toggle = document.getElementById(toggleId);
   if(toggle && toggle.checked && state.current && state.current !== lastAnnouncedBall){
-    speakBall(state.current);
+    queueSpeak(`${LETTER_NAMES[letterFor(state.current)]}, ${state.current}`);
   }
   lastAnnouncedBall = state.current;
 }
-function speakBall(n){
+
+/* Cola de anuncios de voz: cantar balotas rápido cancelaba el anuncio
+   anterior a medio decir, así que cada balota espera su turno y se
+   reproduce completa usando el evento "onend" del anuncio previo. */
+let speechQueue = [];
+let speaking = false;
+function queueSpeak(text){
   if(!('speechSynthesis' in window)) return;
-  const letter = letterFor(n);
-  const utter = new SpeechSynthesisUtterance(`${LETTER_NAMES[letter]}, ${n}`);
+  speechQueue.push(text);
+  processSpeechQueue();
+}
+function processSpeechQueue(){
+  if(speaking || speechQueue.length === 0) return;
+  speaking = true;
+  const utter = new SpeechSynthesisUtterance(speechQueue.shift());
   utter.lang = 'es-CO';
-  speechSynthesis.cancel();
+  utter.onend = () => { speaking = false; processSpeechQueue(); };
+  utter.onerror = () => { speaking = false; processSpeechQueue(); };
   speechSynthesis.speak(utter);
+}
+function clearSpeechQueue(){
+  speechQueue = [];
+  speaking = false;
+  if('speechSynthesis' in window) speechSynthesis.cancel();
 }
 
 function renderPlayerLiveStrip(){
@@ -1018,7 +1042,7 @@ let notifiedWins = {};
    detectó un posible bingo, sin enviar cédula ni número de tarjetón —
    solo sirve como aviso, el admin igual verifica el tarjetón a mano. */
 function notifyWinIfNeeded(cardNum){
-  const key = `${cardNum}-${localState.called.length}`;
+  const key = `${cardNum}-${localState.pattern}`;
   if(notifiedWins[key]) return;
   notifiedWins[key] = true;
   if(!supabaseReady) return;
@@ -1104,6 +1128,11 @@ function renderPlayerCards(){
     const markedSet = new Set((playerMarks[String(num)] || []).filter(v => calledSet.has(v)));
     const won = checkPattern(grid, markedSet, localState.pattern);
     if(won) notifyWinIfNeeded(num);
+    // Avisa al admin apenas las balotas cantadas completan el patrón,
+    // aunque el jugador todavía no haya marcado nada — el banner "¡BINGO!"
+    // de este tarjetón sigue dependiendo únicamente de markedSet.
+    const wouldWinByBallsCalled = checkPattern(grid, calledSet, localState.pattern);
+    if(wouldWinByBallsCalled) notifyWinIfNeeded(num);
     return renderCardHTML(num, grid, calledSet, markedSet, won, true);
   }).join('');
 }
@@ -1167,7 +1196,7 @@ function initAlertsListener(){
 
 function addWinAlert(row){
   const id = 'alert_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-  const alert = { id, secondsLeft: 30, timerId: null };
+  const alert = { id, secondsLeft: 45, timerId: null };
   winAlerts.push(alert);
   playAlertSound();
   renderWinAlerts();
@@ -1195,7 +1224,7 @@ function renderWinAlerts(){
   if(!container) return;
   container.innerHTML = winAlerts.map(a => `
     <div class="win-alert">
-      <div class="win-alert-text">¡Alguien completó el bingo! Tienen 30 segundos para cantarlo 🎉</div>
+      <div class="win-alert-text">¡Alguien completó el bingo! Tienen 45 segundos para cantarlo 🎉</div>
       <div class="win-alert-timer">${a.secondsLeft > 0 ? a.secondsLeft : 'Tiempo agotado'}</div>
       <button class="win-alert-close" onclick="closeWinAlert('${a.id}')">Cerrar</button>
     </div>
@@ -1259,6 +1288,7 @@ async function resetGame(){
   state.pattern = document.getElementById('pattern-select').value || 'linea';
   await saveState(state);
   lastAnnouncedBall = null;
+  clearSpeechQueue();
   renderAdminPanel();
   document.getElementById('verify-result').innerHTML = '';
 }
